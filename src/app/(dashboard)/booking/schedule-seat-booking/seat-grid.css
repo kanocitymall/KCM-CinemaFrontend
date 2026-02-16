@@ -1,0 +1,196 @@
+/* Container & Layout */
+.seat-grid-container {
+  max-width: 900px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* Screen Section */
+.screen-section {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.screen-bar {
+  width: 70%;
+  height: 8px;
+  background: linear-gradient(90deg, transparent, #0dcaf0, transparent);
+  margin: 0 auto;
+  border-radius: 4px;
+  box-shadow: 0 0 20px rgba(13, 202, 240, 0.5);
+}
+
+.screen-label {
+  font-size: 0.85rem;
+  color: #6c757d;
+  font-weight: 600;
+  letter-spacing: 2px;
+  margin-top: 10px;
+}
+
+/* Seats Grid Area */
+.seats-section {
+  background: #f8f9fa;
+  padding: 2rem;
+  border-radius: 12px;
+  max-height: 500px;
+  overflow-y: auto;
+  border: 1px solid #dee2e6;
+}
+
+.seat-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.row-label {
+  min-width: 40px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #495057;
+  text-align: right;
+}
+
+.seats-group {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Base Seat Button Style */
+.seat-btn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+/* 1. Available State (Blue) */
+.seat-btn:not(:disabled).available {
+  color: #4a90e2;
+  border-color: #4a90e2;
+}
+
+.seat-btn:not(:disabled).available:hover {
+  background: #e7f1ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 144, 226, 0.2);
+}
+
+/* 2. Selected State (Green) */
+.seat-btn.selected {
+  background: #28a745 !important;
+  border-color: #1e7e34 !important;
+  color: white !important;
+  font-weight: bold;
+  box-shadow: 0 0 12px rgba(40, 167, 69, 0.4);
+}
+
+.seat-btn.selected:hover {
+  background: #218838;
+}
+
+/* 3. Booked State (Red/Disabled) */
+.seat-btn.booked {
+  background-color: #f8d7da !important; /* Light Red background */
+  border-color: #dc3545 !important;     /* Red border */
+  color: #721c24 !important;            /* Dark Red text/icon */
+  opacity: 1 !important;                /* Solid visible state */
+  cursor: not-allowed !important;
+  pointer-events: none !important;      /* Physically blocks clicks */
+}
+
+/* X Icon specific to Booked seats */
+.seat-btn.booked .booked-icon {
+  display: block;
+  font-weight: bold;
+  font-size: 14px;
+  color: #dc3545 !important;
+}
+
+/* 4. Inactive State (Grey/Disabled) */
+.seat-btn.inactive {
+  background-color: #e9ecef !important; /* Light Grey background */
+  border-color: #ced4da !important;     /* Grey border */
+  color: #6c757d !important;            /* Medium Grey text */
+  opacity: 0.65 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+/* Prohibition Icon specific to Inactive seats */
+.seat-btn.inactive .inactive-icon {
+  display: block;
+  font-weight: bold;
+  font-size: 12px;
+  color: #6c757d !important;
+}
+
+/* Disabled state applies to all non-available seats */
+.seat-btn:disabled {
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+.seat-number {
+  font-size: 0.7rem;
+  margin-top: -2px;
+  display: block;
+}
+
+/* Legend Section */
+.legend-section {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  padding: 1.5rem 0;
+  border-top: 1px solid #dee2e6;
+  margin-top: 1rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #495057;
+}
+
+.legend-seat, .legend-item .box {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 2px solid #dee2e6;
+}
+
+.legend-item .box.available { background-color: white; border-color: #4a90e2; }
+.legend-item .box.selected { background-color: #28a745; border-color: #1e7e34; }
+.legend-item .box.booked { 
+  background-color: #f8d7da; 
+  border-color: #dc3545; 
+}
+.legend-item .box.inactive {
+  background-color: #e9ecef;
+  border-color: #ced4da;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .seat-btn { width: 42px; height: 42px; }
+  .seat-row { gap: 0.5rem; }
+  .seats-section { padding: 1rem; }
+  .legend-section { gap: 1rem; }
+}

@@ -1,0 +1,358 @@
+"use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useParams } from "next/navigation";
+import { Card, Button, Badge } from "react-bootstrap";
+import { toast } from "react-toastify";
+import { getApiClientInstance } from "@/app/utils/axios/axios-client";
+import CameraScanner from "@/app/(dashboard)/booking/chack-in/cameraScanner";
+import { downloadSingleQRCodePDF } from '@/app/utils/ticketHelper';
+import { QRCodeDisplay } from '@/app/(dashboard)/booking/components/QRCodeDisplay';
+import { formatTimeTo12Hour } from '@/app/utils';
+
+const ParticipantsCheckInPage: React.FC = () => {
+  const params = useParams();
+  const scheduleId = params?.id as string;
+  const api = getApiClientInstance();
+
+  const [loading, setLoading] = useState(true);
+  const [bookingsList, setBookingsList] = useState<any[]>([]);
+  const [scheduleInfo, setScheduleInfo] = useState<any | null>(null);
+  const [hallName, setHallName] = useState<string | null>(null);
+  const lastFetchRef = useRef<number>(0);
+  const retryTimeoutRef = useRef<number | null>(null);
+  const seatsLastFetchRef = useRef<number>(0);
+
+  // Seats / PDF download state
+  const [seats, setSeats] = useState<any[]>([]);
+  const [seatsLoading, setSeatsLoading] = useState<boolean>(true);
+
+  const fetchScheduleSeats = useCallback(async () => {
+    if (!scheduleId) return;
+    // prevent rapid repeated requests
+    const now = Date.now();
+    if (now - (seatsLastFetchRef.current || 0) < 1000) return;
+    seatsLastFetchRef.current = now;
+
+    setSeatsLoading(true);
+    try {
+      const res = await api.get(`/bookings/schedule-hall-seats/${scheduleId}`);
+      const payload = res?.data;
+      if (!payload?.success) {
+        toast.error(payload?.message || "Failed to fetch seat assignments");
+        setSeats([]);
+        return;
+      }
+
+      // payload.data may be array or object with data field
+      let dataArray: any[] = [];
+      if (Array.isArray(payload.data)) dataArray = payload.data;
+      else if (payload.data && Array.isArray(payload.data.data)) dataArray = payload.data.data;
+      else if (payload.data) dataArray = [payload.data];
+
+      setSeats(dataArray);
+    } catch (err) {
+      console.error('Failed to fetch schedule-hall-seats', err);
+      toast.error('Failed to fetch seat assignments');
+      setSeats([]);
+    } finally {
+      setSeatsLoading(false);
+    }
+  }, [api, scheduleId]);
+
+  useEffect(() => {
+    if (!scheduleId) return;
+    // Fetch participants and seats together once when scheduleId becomes available
+    fetchParticipants();
+    fetchScheduleSeats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduleId]);
+
+  const downloadSeatPDF = useCallback(async (s: any) => {
+    try {
+      // Build minimal booking and seat objects expected by downloadSingleQRCodePDF
+      const booking = {
+        id: s.booking_id || s.booking?.id || s.id || 0,
+        code: s.booking_code || s.booking?.code || `BK-${s.id || 'unknown'}`,
+        number_of_seats: 1,
+        dueamount: s.price || s.booking?.dueamount || '0',
+        booking_time: s.created_at || s.booking?.booking_time || '',
+        walkin_customer_name: s.customer_name || s.name || s.customer?.name || '',
+        customer: s.customer || null,
+        status: s.status || s.booking?.status || 'Confirmed',
+        schedule: {
+          details: s.schedule?.details || s.program_details || '',
+          date: s.schedule?.date || s.date || '',
+          starttime: s.schedule?.starttime || s.starttime || '',
+          endtime: s.schedule?.endtime || s.endtime || '',
+          hall_id: s.schedule?.hall_id || s.hall_id || undefined,
+          hall_name: s.schedule?.hall?.name || s.hall?.name || s.hall_name || undefined,
+        },
+        booking_seats: [],
+      } as any;
+
+      const seat = {
+        id: s.id || s.seat_id || s.booking_seat_id || 0,
+        price: s.price || s.booking?.price || '0',
+        status: s.status || 'active',
+        qr_code: s.qr_code || s.booking?.qr_code || '',
+        checkin_status: s.checkin_status || s.booking?.checkin_status || undefined,
+        seat: s.seat || s.seat_info || s.seat_detail || { label: s.seat_label || s.label || '' },
+      } as any;
+
+      const info = {
+        companyName: 'Kano City Mall',
+        date: booking.schedule.date || new Date().toISOString().split('T')[0],
+      };
+
+      await downloadSingleQRCodePDF(booking, seat, info);
+      toast.success('PDF downloaded');
+    } catch (err) {
+      console.error('PDF download failed', err);
+      toast.error('Failed to download PDF');
+    }
+  }, []);
+
+  const fetchParticipants = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Prevent immediate repeated requests
+      const now = Date.now();
+      if (now - (lastFetchRef.current || 0) < 1000) return;
+
+      const res = await api.get(`/bookings/schedule-bookings/${scheduleId}`);
+      const payload = res?.data;
+      lastFetchRef.current = Date.now();
+      if (!payload?.success) {
+        toast.error(payload?.message || "Failed to fetch participants");
+        setBookingsList([]);
+        return;
+      }
+
+      // Response shape can be:
+      // { success: true, data: [ ... ] }
+      // or { success: true, data: { schedule: {...}, bookings: { data: [ ... ] } } }
+      let bookingsArray: any[] = [];
+
+      const d = payload.data;
+      if (Array.isArray(d)) {
+        bookingsArray = d;
+      } else if (d) {
+        if (Array.isArray(d.bookings)) {
+          bookingsArray = d.bookings;
+        } else if (d.bookings && Array.isArray(d.bookings.data)) {
+          bookingsArray = d.bookings.data;
+        } else if (Array.isArray(d.data)) {
+          bookingsArray = d.data;
+        }
+      }
+
+      // Keep a structured bookings list for rendering customer cards + seats
+      setBookingsList(bookingsArray);
+
+      // capture schedule info if present
+      const sched = d?.schedule || payload?.data?.schedule || null;
+      if (sched) {
+        setScheduleInfo(sched);
+        // fetch hall name if hall_id present
+        try {
+          const hid = sched.hall_id || sched.hall?.id || sched.hall_id;
+          if (hid) {
+            const hr = await api.get(`/halls/get-hall/${hid}`);
+            const hname = hr?.data?.data?.name || hr?.data?.name || hr?.data?.hall_name || `Hall ${hid}`;
+            setHallName(hname);
+          } else {
+            setHallName(null);
+          }
+        } catch (e) {
+          console.warn('Failed to fetch hall name', e);
+          setHallName(null);
+        }
+      } else {
+        setScheduleInfo(null);
+        setHallName(null);
+      }
+    } catch (err: any) {
+      console.error(err);
+      const status = err?.response?.status;
+      // Handle rate limiting (429) by respecting Retry-After header if present
+      if (status === 429) {
+        const retryAfter = parseInt(err.response?.headers?.["retry-after"] || "0") || 5;
+        toast.warn(`Rate limited by server. Retrying in ${retryAfter}s`);
+        // schedule one retry
+        if (retryTimeoutRef.current) window.clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = window.setTimeout(() => {
+          fetchParticipants();
+        }, retryAfter * 1000) as unknown as number;
+      } else {
+        toast.error("Failed to fetch participants");
+        setBookingsList([]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [api, scheduleId]);
+
+  useEffect(() => {
+    if (scheduleId) fetchParticipants();
+  }, [fetchParticipants, scheduleId]);
+
+  const handleSuccessfulScan = (data: any) => {
+    try {
+      const id = data?.id || data?.booking?.id || data?.seat?.id;
+      if (id) {
+        // Refresh list from server to reflect check-in status
+        fetchParticipants();
+        toast.success("Participant checked in");
+      } else {
+        fetchParticipants();
+      }
+    } catch (err) {
+      console.error(err);
+      fetchParticipants();
+    }
+  };
+
+  return (
+    <section className="container py-4">
+      <div className="row justify-content-center">
+        <div className="col-lg-8">
+          <Card className="mb-4">
+            <Card.Header className="bg-light">Participant Check-In</Card.Header>
+            <Card.Body>
+              <p className="small text-muted">Scan participant QR codes to check them in.</p>
+              <div className="d-flex justify-content-center mb-3">
+                <CameraScanner scheduleId={scheduleId ? Number(scheduleId) : undefined} onSuccessfulScan={handleSuccessfulScan} />
+              </div>
+
+              {/* Schedule info */}
+              <div className="mb-3">
+                <div className="d-flex gap-3 align-items-center">
+                  <div><strong>Program:</strong> {scheduleInfo?.details || scheduleInfo?.program_name || 'N/A'}</div>
+                  <div><strong>Hall:</strong> {hallName || scheduleInfo?.hall?.name || 'N/A'}</div>
+                  <div><strong>Date:</strong> {scheduleInfo?.date || 'N/A'}</div>
+                  <div><strong>Time:</strong> {scheduleInfo?.starttime ? `${formatTimeTo12Hour(scheduleInfo.starttime)}${scheduleInfo?.endtime ? ` - ${formatTimeTo12Hour(scheduleInfo.endtime)}` : ''}` : 'N/A'}</div>
+                </div>
+              </div>
+
+              {/* Seat assignments / PDF downloads */}
+              <h6 className="mb-3">Seat Assignments</h6>
+              {seatsLoading ? (
+                <p>Loading seat assignments...</p>
+              ) : seats.length === 0 ? (
+                <p className="text-muted">No seat assignments found.</p>
+              ) : (
+                seats
+                  .filter((s) => {
+                    const name = s.customer_name || s.name || s.customer?.name;
+                    const seatLabel = s.seat_label || s.seat || s.label || '';
+                    // exclude seats with no customer name or no meaningful seat label
+                    if (!name) return false;
+                    if (!seatLabel || seatLabel === '-') return false;
+                    return true;
+                  })
+                  .map((s, idx) => (
+                    <div key={s.id ?? s.seat_id ?? s.booking_id ?? `seat-${idx}`} className="d-flex justify-content-between align-items-center py-2 border-bottom">
+                      <div>
+                        <div className="fw-semibold">{s.customer_name || s.name || s.customer?.name}</div>
+                        <div className="small text-muted">Seat: {s.seat_label || s.seat || s.label}</div>
+                      </div>
+                      <div>
+                        <Button variant="outline-primary" size="sm" className="me-2" onClick={() => downloadSeatPDF(s)}>PDF</Button>
+                      </div>
+                    </div>
+                  ))
+              )}
+
+              <hr />
+              <h6 className="mb-3">Participants</h6>
+              {loading ? (
+                <p>Loading...</p>
+              ) : bookingsList.length === 0 ? (
+                <p className="text-muted">No participants found for this schedule.</p>
+              ) : (
+                bookingsList.map((b, bi) => (
+                  <Card key={b.id ?? `booking-${bi}`} className="mb-3">
+                    <Card.Body>
+                      <div className="d-flex justify-content-between align-items-start">
+                        <div>
+                          <div className="fw-semibold">{b.walkin_customer_name || b.customer?.name || 'Guest'}</div>
+                          <div className="small text-muted">Booking: {b.code || b.id}</div>
+                        </div>
+                        <div>
+                          <Badge bg={b.booking_seats?.some((s: any) => s.checkin_status === 'checked_in') ? 'success' : 'secondary'}>
+                            {b.booking_seats?.some((s: any) => s.checkin_status === 'checked_in') ? 'Checked In' : 'Not Checked In'}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <div className="mt-3">
+                        {(b.booking_seats || []).map((s: any, si: number) => (
+                          <div key={s.id ?? `seat-${si}`} className="d-flex justify-content-between align-items-center py-2 border-top">
+                            <div>
+                              <div className="fw-medium">{s.seat?.label || s.seat_label || `${s.seat?.seat_row || ''}${s.seat?.seat_number || ''}`}</div>
+                              <div className="small text-muted">Price: ₦{s.price ? String(Math.round(Number(s.price))) : '0'}</div>
+                            </div>
+                            <div className="d-flex align-items-center gap-2">
+                              {(() => {
+                                const sched = b.schedule || b?.booking?.schedule || scheduleInfo || {};
+                                const prog = sched.details || sched.program_name || sched.title || scheduleInfo?.details || scheduleInfo?.program_name || '';
+                                const hallName_local = sched.hall?.name || sched.hall_name || hallName || scheduleInfo?.hall?.name || '';
+                                const hall = hallName_local || (scheduleInfo?.hall_id ? `Hall ${scheduleInfo.hall_id}` : '');
+                                const date = sched.date || scheduleInfo?.date || '';
+                                const st = sched.starttime || scheduleInfo?.starttime || '';
+                                const et = sched.endtime || scheduleInfo?.endtime || '';
+                                // Extract time part from full datetime if present
+                                const stTime = st ? st.includes(' ') ? st.split(' ')[1] : st : '';
+                                const etTime = et ? et.includes(' ') ? et.split(' ')[1] : et : '';
+                                return (
+                                  <QRCodeDisplay
+                                    qrCodeValue={s.qr_code || ''}
+                                    bookingCode={String(b.code || b.id)}
+                                    seatLabel={s.seat?.label || ''}
+                                    customerName={b.walkin_customer_name || b.customer?.name || ''}
+                                    program={prog}
+                                    hall={hall}
+                                    date={date}
+                                    starttime={stTime ? formatTimeTo12Hour(stTime) : undefined}
+                                    endtime={etTime ? formatTimeTo12Hour(etTime) : undefined}
+                                    onDownloadPDF={async () => {
+                                      try {
+                                        const bookingForPdf = { ...b } as any;
+                                        const seatForPdf = { ...s } as any;
+                                        const info = { companyName: 'Kano City Mall', date: bookingForPdf.schedule?.date || '' };
+                                        await downloadSingleQRCodePDF(bookingForPdf, seatForPdf, info);
+                                        toast.success('PDF downloaded');
+                                      } catch (err) {
+                                        console.error('PDF download failed', err);
+                                        toast.error('Failed to download PDF');
+                                      }
+                                    }}
+                                  />
+                                );
+                              })()}
+                              <div>
+                                <Badge bg={s.checkin_status === 'checked_in' ? 'success' : 'secondary'}>
+                                  {s.checkin_status === 'checked_in' ? 'Checked In' : (s.checkin_status ? String(s.checkin_status) : 'Not Checked In')}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </Card.Body>
+                  </Card>
+                ))
+              )}
+            </Card.Body>
+          </Card>
+          <div className="text-center">
+            <Button variant="secondary" onClick={() => fetchParticipants()} disabled={loading}>Refresh</Button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default ParticipantsCheckInPage;
