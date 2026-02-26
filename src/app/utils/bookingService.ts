@@ -70,6 +70,13 @@ export interface ScheduleInfo {
   status: string;
   created_at: string;
   updated_at: string;
+
+  // optional extras used by UI components
+  program_name?: string;
+  title?: string;
+  // some endpoints return an embedded hall object
+  hall?: { name?: string; id?: number };
+  hall_name?: string;
 }
 
 export interface ScheduleBookingsResponse {

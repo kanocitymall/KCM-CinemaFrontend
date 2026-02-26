@@ -43,6 +43,7 @@ export interface BookingInfo {
 export interface CompanyInfo {
   companyName: string;
   date: string;
+  programName?: string; // optional override for schedule details
 }
 
 // --- Helper Functions ---
@@ -90,14 +91,14 @@ export const downloadTicketsAsPDF = async (
 
       // Header - 🎬 COMPANY + BOOKING TICKET
       doc.setFont('courier', 'normal');
-      doc.setFontSize(8);
+      doc.setFontSize(20);
       // use company info if provided
       if (info?.companyName) {
         doc.text(info.companyName, pageWidth / 2, y, { align: 'center' });
         y += 5;
       }
       doc.setFont('courier', 'bold');
-      doc.setFontSize(12);
+      doc.setFontSize(14);
       doc.text('BOOKING TICKET', pageWidth / 2, y, { align: 'center' });
       
       y += 6;
@@ -112,11 +113,10 @@ export const downloadTicketsAsPDF = async (
       doc.setFont('courier', 'normal');
       
       const customerName = booking.walkin_customer_name || booking.customer?.name || 'GUEST';
-      const showName = booking.schedule?.details || 'N/A';
       const hallName = booking.schedule?.hall_name || (booking.schedule?.hall_id ? `Hall ${booking.schedule.hall_id}` : 'N/A');
       const seatLabel = seat.seat?.label || 'N/A';
       const dateValue = booking.schedule?.date || 'N/A';
-      const priceValue = String(Math.round(Number(seat.price || 0)));
+      const priceValue = Number(seat.price || 0).toLocaleString('en-NG');
       
       // Customer
       doc.setFont('courier', 'bold');
@@ -132,11 +132,19 @@ export const downloadTicketsAsPDF = async (
       doc.text(booking.code ?? 'N/A', contentMargin + 25, y);
       y += 4;
       
-      // Program/Show
+      // Program/Show - use schedule.details if available
+      // determine program name: prefer explicit override from CompanyInfo
+      let programName = info.programName || 'N/A';
+      if (!programName || programName.toLowerCase() === 'n/a') {
+        // fallback to schedule.details unless it's null or literal 'null'
+        if (booking.schedule?.details && booking.schedule.details.toLowerCase() !== 'null') {
+          programName = booking.schedule.details;
+        }
+      }
       doc.setFont('courier', 'bold');
       doc.text('Program:', contentMargin, y);
       doc.setFont('courier', 'normal');
-      doc.text(showName, contentMargin + 25, y);
+      doc.text(programName, contentMargin + 25, y);
       y += 4;
       
       // Hall
@@ -157,7 +165,7 @@ export const downloadTicketsAsPDF = async (
       doc.setFont('courier', 'bold');
       doc.text('Price:', contentMargin, y);
       doc.setFont('courier', 'normal');
-      doc.text(`₦${priceValue}`, contentMargin + 25, y);
+      doc.text(priceValue, contentMargin + 25, y);
       y += 4;
       
       // Date
@@ -167,29 +175,28 @@ export const downloadTicketsAsPDF = async (
       doc.text(dateValue, contentMargin + 25, y);
       y += 4;
       
-      // Time
-      const timeStr = formatTo12Hour(booking.schedule?.starttime || '');
+      // Start Time
+      const startTime = formatTo12Hour(booking.schedule?.starttime || '');
       doc.setFont('courier', 'bold');
-      doc.text('Time:', contentMargin, y);
+      doc.text('Start:', contentMargin, y);
       doc.setFont('courier', 'normal');
-      doc.text(timeStr, contentMargin + 25, y);
+      doc.text(startTime, contentMargin + 25, y);
+      y += 4;
+
+      // End Time
+      const endTime = formatTo12Hour(booking.schedule?.endtime || '');
+      doc.setFont('courier', 'bold');
+      doc.text('End:', contentMargin, y);
+      doc.setFont('courier', 'normal');
+      doc.text(endTime, contentMargin + 25, y);
       y += 6;
 
       // QR Code - centered
       if (seat.qr_code) {
         const qrCodeDataUrl = await QRCode.toDataURL(seat.qr_code, { margin: 1 });
-        const qrSize = 16;
+        const qrSize = 20;
         doc.addImage(qrCodeDataUrl, 'PNG', (pageWidth - qrSize) / 2, y, qrSize, qrSize);
-        y += qrSize + 2;
       }
-      
-      // Footer
-      y += 2;
-      doc.setFontSize(8);
-      doc.setFont('courier', 'normal');
-      doc.setTextColor(102, 102, 102);
-      doc.text(`${seatLabel} - Ticket #${seat.id}`, pageWidth / 2, y, { align: 'center' });
-      doc.setTextColor(0, 0, 0);
     }
 
     doc.save(`${booking.code}-tickets.pdf`);
@@ -242,3 +249,4 @@ export const generateTicketCanvas = async (
 export const generateQRCodeImage = async (data: string): Promise<string> => {
   return await QRCode.toDataURL(data, { width: 250, margin: 2 });
 };
+

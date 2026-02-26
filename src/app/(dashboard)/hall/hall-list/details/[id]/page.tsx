@@ -10,6 +10,7 @@ import {
     BsArrowLeft, BsThreeDotsVertical, BsTrash, BsCloudUpload, 
     BsPeople, BsGrid3X3Gap, BsXCircleFill
 } from "react-icons/bs";
+import { Spinner } from "react-bootstrap";
 import { getApiClientInstance } from "@/app/utils/axios/axios-client";
 import Loading from "../../../../components/loading";
 import { toast } from "react-toastify";
@@ -233,9 +234,18 @@ const HallDetailsPage = () => {
                                     </PermissionGuard>
 
                                     <PermissionGuard permission="Manage Halls">
-                                        <Dropdown.Item as="label" htmlFor="file-upload" style={{ cursor: 'pointer' }}>
-                                            <BsCloudUpload className="me-2" /> Upload Photos
-                                            <input type="file" id="file-upload" hidden multiple onChange={handleUploadImages} disabled={uploading} />
+                                        <Dropdown.Item
+                                          as="label"
+                                          htmlFor="file-upload"
+                                          style={{ cursor: uploading ? 'not-allowed' : 'pointer' }}
+                                          className={uploading ? 'disabled' : ''}
+                                        >
+                                          {uploading ? (
+                                            <><Spinner animation="border" size="sm" className="me-2" />Uploading...</>
+                                          ) : (
+                                            <><BsCloudUpload className="me-2" /> Upload Photos</>
+                                          )}
+                                          <input type="file" id="file-upload" hidden multiple onChange={handleUploadImages} disabled={uploading} />
                                         </Dropdown.Item>
                                     </PermissionGuard>
 
@@ -312,3 +322,4 @@ const HallDetailsPage = () => {
 };
 
 export default HallDetailsPage;
+

@@ -25,7 +25,6 @@ export const capitalizeWords = (input: string): string => {
     .join(" ");
 };
 
-
 export const getGroupedPermissions = (authResponse: AuthResponse): Record<number, Permission[]> => {
   const permissions = getUserPermissions(authResponse);
   
@@ -41,7 +40,6 @@ export const getGroupedPermissions = (authResponse: AuthResponse): Record<number
   }, {});
 };
 
-
 export const getUserPermissions = (authResponse: AuthResponse): Permission[] => {
   if (!authResponse?.success || !authResponse.data?.user?.permissions) {
     return [];
@@ -50,12 +48,10 @@ export const getUserPermissions = (authResponse: AuthResponse): Permission[] => 
   return authResponse.data.user.permissions;
 };
 
-
 export const getUserPermissionNames = (authResponse: AuthResponse): string[] => {
   const permissions = getUserPermissions(authResponse);
   return permissions.map(permission => permission.name);
 };
-
 
 export const hasPermission = (authResponse: AuthResponse, permissionName: string): boolean => {
   const permissions = getUserPermissions(authResponse);
@@ -64,13 +60,35 @@ export const hasPermission = (authResponse: AuthResponse, permissionName: string
 
 export const formatTimeTo12Hour = (datetime?: string | null): string => {
   if (!datetime) return "";
-  const iso = String(datetime).replace(" ", "T");
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) {
-    // Fallback: try to return the time portion if available
-    const parts = String(datetime).split(" ");
-    return parts[1] ?? String(datetime);
+  const s = String(datetime).trim();
+
+  // Case 1: full datetime like "2026-02-25 21:00:00"
+  if (s.includes(" ")) {
+    const iso = s.replace(" ", "T");
+    const d = new Date(iso);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+    }
   }
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+
+  // Case 2: time-only string like "21:00" or "21:00:00"
+  const timeOnlyMatch = s.match(/^(\d{1,2}):(\d{2})(?:\:\d{2})?$/);
+  if (timeOnlyMatch) {
+    let hh = parseInt(timeOnlyMatch[1], 10);
+    const mm = timeOnlyMatch[2];
+    const period = hh >= 12 ? 'PM' : 'AM';
+    hh = hh % 12 === 0 ? 12 : hh % 12;
+    return `${hh}:${mm}${period}`;
+  }
+
+  // Fallback: try Date parse generically
+  const isoFallback = s.replace(" ", "T");
+  const d2 = new Date(isoFallback);
+  if (!isNaN(d2.getTime())) {
+    return d2.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+  }
+
+  return s;
 };
+
 
