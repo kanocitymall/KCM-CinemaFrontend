@@ -1,6 +1,5 @@
 /* @tailwind base;
 @tailwind components; */
-@tailwind utilities;
 @import "tailwindcss/preflight" layer(base);
 @import "tailwindcss/utilities" layer(utilities);
 
@@ -117,15 +116,5 @@ a {
 @media (max-width: 767px) {
   .hide-on-mobile {
     display: none !important;
-  }
-}
-/* Ensure Offcanvas sidebar is always on top on mobile */
-@media (max-width: 991.98px) {
-  .offcanvas {
-    z-index: 1050 !important;
-  }
-  
-  .offcanvas-backdrop {
-    z-index: 1049 !important;
   }
 }

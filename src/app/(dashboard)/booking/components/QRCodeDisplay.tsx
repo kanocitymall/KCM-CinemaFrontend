@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { IoDownloadOutline, IoClose } from 'react-icons/io5';
+import { Spinner } from 'react-bootstrap';
 import { generateQRCodeImage } from '@/app/utils/ticketHelper';
 import Loading from '../../components/loading';
 
@@ -43,7 +44,7 @@ export const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({
   const [isOpen, setIsOpen] = useState(showModal);
 
   // Guard: If data is essentially empty/loading, don't show "N/A"
-  const isInitialLoading = !program || program === 'N/A';
+  const isInitialLoading = false; // no initial loading UI; always show card
 
   useEffect(() => {
     setIsOpen(showModal);
@@ -87,25 +88,14 @@ export const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({
 
   // --- 1. Inline Render (Non-Modal) ---
   if (!showModal) {
-    if (isInitialLoading) {
-      return (
-        <div className="qr-code-display text-center p-4 border rounded bg-light">
-          <div style={{ width: '150px', margin: '0 auto' }}>
-             <Loading />
-          </div>
-          <p className="small text-muted mt-2">Loading ticket details...</p>
-        </div>
-      );
-    }
-
     return (
       <div className="qr-code-display text-center p-3 border rounded bg-light">
         <div className="d-flex flex-column gap-2 align-items-center text-start">
           <div className="small text-muted w-100">
-            <strong>Program:</strong> {program} <br />
-            <strong>Hall:</strong> {hall} <br />
-            <strong>Date:</strong> {date} <br />
-            <strong>Time:</strong> {starttime}{endtime ? ` - ${endtime}` : ''}
+            <strong>Program:</strong> {program || 'N/A'} <br />
+            <strong>Hall:</strong> {hall || 'N/A'} <br />
+            <strong>Date:</strong> {date || 'N/A'} <br />
+            <strong>Time:</strong> {(starttime || 'N/A')}{endtime ? ` - ${endtime}` : ''}
           </div>
           <div className="w-100 d-flex justify-content-center">
             {onDownloadPDF ? (
@@ -113,7 +103,7 @@ export const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({
                 onClick={handleDownload} 
                 className="btn btn-sm btn-success d-flex align-items-center gap-1"
               >
-                <IoDownloadOutline size={14} /> Download PDF
+                {loading ? <Spinner size="sm" className="me-1" /> : <IoDownloadOutline size={14} />} Download PDF
               </button>
             ) : (
               <div className="small text-muted">QR code hidden</div>
@@ -144,10 +134,10 @@ export const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({
               <Loading />
             ) : (
               <div className="alert alert-info text-start">
-                <strong>Program:</strong> {program}<br />
-                <strong>Hall:</strong> {hall}<br />
-                <strong>Date:</strong> {date}<br />
-                <strong>Time:</strong> {starttime} {endtime ? `- ${endtime}` : ''}
+                <strong>Program:</strong> {program || 'N/A'}<br />
+                <strong>Hall:</strong> {hall || 'N/A'}<br />
+                <strong>Date:</strong> {date || 'N/A'}<br />
+                <strong>Time:</strong> {(starttime || 'N/A')} {endtime ? `- ${endtime}` : ''}
                 <hr />
                 <strong>Seat:</strong> {seatLabel}<br />
                 {customerName && (
@@ -183,3 +173,4 @@ export const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({
 };
 
 export default QRCodeDisplay;
+

@@ -7,7 +7,7 @@ import PageHeader from "../../../../components/page-header";
 import Loading from "../../../../components/loading";
 import { toast } from "react-toastify";
 import { isAxiosError } from "axios";
-import { IoArrowBackOutline, IoPrintOutline, IoTrashOutline, IoDownloadOutline } from "react-icons/io5";
+import { IoArrowBackOutline, IoTrashOutline, IoDownloadOutline } from "react-icons/io5";
 import PermissionGuard from "../../../../components/PermissionGuard";
 // Import both the canvas generator and the new PDF generator
 import {  downloadTicketsAsPDF, } from "@/app/utils/ticketHelper";
@@ -47,6 +47,7 @@ interface BookingDetails {
   } | null;
   status: string;
   schedule: {
+    program_id?: number; // may be absent in API response
     details: string;
     date: string;
     starttime: string;
@@ -106,15 +107,30 @@ const BookingShowPage = () => {
   }, [id, api]);
 
 
-
   // Handle Bulk Ticket Download (PDF - 4 per page)
   const handleDownloadAllPDF = async (): Promise<void> => {
     if (!booking) return;
     try {
       toast.info("Generating PDF tickets with QR codes...");
+      let programName = '';
+      if (booking.schedule.details && booking.schedule.details !== 'null') {
+        programName = booking.schedule.details;
+      } else if (booking.schedule.program_id) {
+        try {
+          const progRes = await api.get(`/programs/show-program/${booking.schedule.program_id}`);
+          if (progRes.data.success && progRes.data.data) {
+            // assume title field holds name
+            programName = progRes.data.data.title || '';
+          }
+        } catch (err) {
+          console.debug('Failed to fetch program for ticket pdf', err);
+        }
+      }
+
       const info = { 
         companyName: "Kano City Mall", 
-        date: booking.schedule.date 
+        date: booking.schedule.date,
+        programName: programName || undefined,
       };
       await downloadTicketsAsPDF(booking, booking.booking_seats, info);
       toast.success("All tickets with QR codes downloaded as PDF!");
@@ -277,11 +293,6 @@ const BookingShowPage = () => {
                 ))}
               </ul>
             </div>
-            <div className="card-footer bg-white border-0 py-3">
-              <button className="btn btn-dark w-100 d-flex align-items-center justify-content-center gap-2" onClick={() => window.print()}>
-                <IoPrintOutline /> <span className="d-none d-sm-inline">Print Invoice</span>
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -290,3 +301,4 @@ const BookingShowPage = () => {
 };
 
 export default BookingShowPage;
+

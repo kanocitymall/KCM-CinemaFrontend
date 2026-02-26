@@ -9,6 +9,17 @@ import CameraScanner from "@/app/(dashboard)/booking/chack-in/cameraScanner";
 import { downloadSingleQRCodePDF } from '@/app/utils/ticketHelper';
 import { QRCodeDisplay } from '@/app/(dashboard)/booking/components/QRCodeDisplay';
 import { formatTimeTo12Hour } from '@/app/utils';
+import { ScheduleInfo } from '@/app/utils/bookingService';
+
+// scheduleInfo coming from API may include additional optional fields used by UI
+// such as program_name, hall object, and title. Define an extended type locally
+// so that we can safely access those properties without TypeScript complaints.
+interface ExtendedScheduleInfo extends ScheduleInfo {
+  program_name?: string;
+  title?: string;
+  hall?: { name?: string; id?: number };
+  hall_name?: string;
+}
 
 const ParticipantsCheckInPage: React.FC = () => {
   const params = useParams();
@@ -17,11 +28,18 @@ const ParticipantsCheckInPage: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [bookingsList, setBookingsList] = useState<any[]>([]);
-  const [scheduleInfo, setScheduleInfo] = useState<any | null>(null);
+  const [scheduleInfo, setScheduleInfo] = useState<ExtendedScheduleInfo | null>(null);
   const [hallName, setHallName] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalBookings, setTotalBookings] = useState(0);
   const lastFetchRef = useRef<number>(0);
   const retryTimeoutRef = useRef<number | null>(null);
   const seatsLastFetchRef = useRef<number>(0);
+
+  // Caches to prevent repeated API calls for the same resource
+  const programCacheRef = useRef<Record<number, { title: string }>>({});
+  const hallCacheRef = useRef<Record<number, { name: string }>>({});
 
   // Seats / PDF download state
   const [seats, setSeats] = useState<any[]>([]);
@@ -120,7 +138,7 @@ const ParticipantsCheckInPage: React.FC = () => {
       const now = Date.now();
       if (now - (lastFetchRef.current || 0) < 1000) return;
 
-      const res = await api.get(`/bookings/schedule-bookings/${scheduleId}`);
+      const res = await api.get(`/bookings/schedule-bookings/${scheduleId}?page=${currentPage}`);
       const payload = res?.data;
       lastFetchRef.current = Date.now();
       if (!payload?.success) {
@@ -150,17 +168,64 @@ const ParticipantsCheckInPage: React.FC = () => {
       // Keep a structured bookings list for rendering customer cards + seats
       setBookingsList(bookingsArray);
 
+      // Extract pagination info if available
+      if (d?.bookings && typeof d.bookings === 'object' && !Array.isArray(d.bookings)) {
+        setTotalPages(d.bookings.last_page || 1);
+        setTotalBookings(d.bookings.total || 0);
+      } else {
+        setTotalPages(1);
+        setTotalBookings(bookingsArray.length);
+      }
+
       // capture schedule info if present
       const sched = d?.schedule || payload?.data?.schedule || null;
       if (sched) {
-        setScheduleInfo(sched);
+        // create a mutable copy to enrich before updating state
+        const enriched: ExtendedScheduleInfo = { ...sched } as any;
+
+        // if the schedule lacks a human-readable title, fetch it once
+        if (
+          enriched.program_id &&
+          (!enriched.details || enriched.details.toLowerCase() === 'null')
+        ) {
+          try {
+            // Check cache first to avoid repeated 429 errors
+            if (programCacheRef.current[enriched.program_id]) {
+              enriched.details = programCacheRef.current[enriched.program_id].title;
+            } else {
+              const progRes = await api.get(`/programs/show-program/${enriched.program_id}`);
+              if (progRes.data.success && progRes.data.data) {
+                const title = progRes.data.data.title || '';
+                programCacheRef.current[enriched.program_id] = { title };
+                enriched.details = title || enriched.details || '';
+              }
+            }
+          } catch (err) {
+            console.debug('Failed to fetch program name for schedule:', err);
+          }
+
+          // if lookup left us with nothing, provide a sensible placeholder
+          if (!enriched.details) {
+            enriched.details = `Program #${enriched.program_id}`;
+          }
+        }
+
+        // update schedule info with whatever we currently have (possibly enriched)
+        setScheduleInfo(enriched);
+
         // fetch hall name if hall_id present
         try {
-          const hid = sched.hall_id || sched.hall?.id || sched.hall_id;
+          const hid = enriched.hall_id || enriched.hall?.id || enriched.hall_id;
           if (hid) {
-            const hr = await api.get(`/halls/get-hall/${hid}`);
-            const hname = hr?.data?.data?.name || hr?.data?.name || hr?.data?.hall_name || `Hall ${hid}`;
-            setHallName(hname);
+            // Check cache first to avoid repeated 429 errors
+            if (hallCacheRef.current[hid]) {
+              setHallName(hallCacheRef.current[hid].name);
+            } else {
+              const hr = await api.get(`/halls/get-hall/${hid}`);
+              const hname = hr?.data?.data?.name || hr?.data?.name || hr?.data?.hall_name || `Hall ${hid}`;
+              hallCacheRef.current[hid] = { name: hname };
+              setHallName(hname);
+            }
           } else {
             setHallName(null);
           }
@@ -191,10 +256,13 @@ const ParticipantsCheckInPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [api, scheduleId]);
+  }, [api, scheduleId, currentPage]);
 
   useEffect(() => {
-    if (scheduleId) fetchParticipants();
+    if (scheduleId) {
+      setCurrentPage(1); // Reset to page 1 when scheduleId changes
+      fetchParticipants();
+    }
   }, [fetchParticipants, scheduleId]);
 
   const handleSuccessfulScan = (data: any) => {
@@ -236,9 +304,9 @@ const ParticipantsCheckInPage: React.FC = () => {
               </div>
 
               {/* Seat assignments / PDF downloads */}
-              <h6 className="mb-3">Seat Assignments</h6>
+              <h6 className="mb-3">Seat </h6>
               {seatsLoading ? (
-                <p>Loading seat assignments...</p>
+                <p>Loading seat ...</p>
               ) : seats.length === 0 ? (
                 <p className="text-muted">No seat assignments found.</p>
               ) : (
@@ -318,9 +386,15 @@ const ParticipantsCheckInPage: React.FC = () => {
                                     endtime={etTime ? formatTimeTo12Hour(etTime) : undefined}
                                     onDownloadPDF={async () => {
                                       try {
-                                        const bookingForPdf = { ...b } as any;
+                                        // include schedule data from parent state if it's missing on the booking
+                                        const bookingForPdf = { ...b, schedule: b.schedule || scheduleInfo } as any;
                                         const seatForPdf = { ...s } as any;
-                                        const info = { companyName: 'Kano City Mall', date: bookingForPdf.schedule?.date || '' };
+                                        const info = {
+                                          companyName: 'Kano City Mall',
+                                          date: bookingForPdf.schedule?.date || scheduleInfo?.date || '',
+                                          // supply program name if available (scheduleInfo.details may have been populated above)
+                                          programName: bookingForPdf.schedule?.details || scheduleInfo?.details || ''
+                                        };
                                         await downloadSingleQRCodePDF(bookingForPdf, seatForPdf, info);
                                         toast.success('PDF downloaded');
                                       } catch (err) {
@@ -344,11 +418,35 @@ const ParticipantsCheckInPage: React.FC = () => {
                   </Card>
                 ))
               )}
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                  <div className="small text-muted">
+                    Page {currentPage} of {totalPages} ({totalBookings} total bookings)
+                  </div>
+                  <div className="d-flex gap-2">
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      disabled={currentPage === 1 || loading}
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      disabled={currentPage === totalPages || loading}
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </Card.Body>
           </Card>
-          <div className="text-center">
-            <Button variant="secondary" onClick={() => fetchParticipants()} disabled={loading}>Refresh</Button>
-          </div>
         </div>
       </div>
     </section>

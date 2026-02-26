@@ -4,7 +4,7 @@ import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { PaginatedData, ApiResponse } from "./types";
-// import { FaRegEdit } from "react-icons/fa";
+import { FaRegEdit } from "react-icons/fa";
 import Link from "next/link";
 import { Spinner, Pagination } from "react-bootstrap";
 import { toast } from "react-toastify";
@@ -33,6 +33,13 @@ interface HallBooking {
   };
 }
 
+// payload used when editing a booking's walk-in customer details
+interface EditBookingPayload {
+  walkin_customer_name: string;
+  walkin_customer_no: string;
+  walkin_customer_email: string;
+}
+
 const BookingList = () => {
   const [bookings, setBookings] = useState<HallBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +49,15 @@ const BookingList = () => {
   const [showActionModal, setShowActionModal] = useState(false);
   const [loadingAction, setLoadingAction] = useState<"approve" | "reject" | null>(null);
   const [actionComment, setActionComment] = useState<string>("");
+
+  // editing state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<HallBooking | null>(null);
+  const [editForm, setEditForm] = useState<EditBookingPayload>({
+    walkin_customer_name: "",
+    walkin_customer_no: "",
+    walkin_customer_email: "",
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -87,7 +103,7 @@ const BookingList = () => {
         action: action === "approve" ? "Approved" : "Rejected",
         comment: actionComment.trim() || `Booking ${action}ed`,
       };
-      const res = await api.patch(`/bookings/update-booking/${id}`, payload);
+      const res = await api.put(`/bookings/update-booking/${id}`, payload);
       if (res.data.success) {
         toast.success("Updated successfully ✅");
         setRefetch(true);
@@ -132,7 +148,7 @@ const BookingList = () => {
                   <th>Start Time</th>
                   <th>End Time</th>
                   <th>Amount</th>
-                  <PermissionGuard permission="Edit Booking"><th className="text-center">Edit</th></PermissionGuard>
+                  <PermissionGuard permission="Edit Booking"><th className="text-center">Action</th></PermissionGuard>
                   <PermissionGuard permission="Show Booking"><th className="text-center">View</th></PermissionGuard>
                 </tr>
               </thead>
@@ -151,11 +167,25 @@ const BookingList = () => {
                     <td className="small">{formatTimeTo12Hour(b.schedule?.starttime)}</td>
                     <td className="small">{formatTimeTo12Hour(b.schedule?.endtime)}</td>
                     <td>₦{Number(b.dueamount).toLocaleString()}</td>
-                    <td className="text-center">
-                      {/* <button className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1" onClick={() => { setSelectedBooking(b); setShowFormModal(true); }}>
-                        <FaRegEdit /> Edit
-                      </button> */}
-                    </td>
+                    <PermissionGuard permission="Edit Booking">
+                      <td className="text-center">
+                        <button
+                          className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1"
+                          onClick={() => {
+                            setEditingBooking(b);
+                            setEditForm({
+                              walkin_customer_name: b.walkin_customer_name || "",
+                              walkin_customer_no: b.walkin_customer_no || "",
+                              walkin_customer_email: b.walkin_customer_email || "",
+                            });
+                            setShowEditModal(true);
+                          }}
+                        >
+                           <FaRegEdit />
+                          Edit
+                        </button>
+                      </td>
+                    </PermissionGuard>
                    <PermissionGuard permission="Show Booking">
                     <td className="text-center">
                       <Link 
@@ -237,8 +267,76 @@ const BookingList = () => {
           )}
         </Modal.Body>
       </Modal>
+
+      {/* Edit Booking Modal */}
+      <Modal show={showEditModal} onHide={() => setShowEditModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Edit Booking</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {editingBooking && (
+            <Form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  const payload: EditBookingPayload = {
+                    walkin_customer_name: editForm.walkin_customer_name,
+                    walkin_customer_no: editForm.walkin_customer_no,
+                    walkin_customer_email: editForm.walkin_customer_email,
+                  };
+                  const res = await api.put(`/bookings/update-booking/${editingBooking.id}`, payload);
+                  if (res.data.success) {
+                    toast.success("Booking updated successfully ✅");
+                    setRefetch(true);
+                    setShowEditModal(false);
+                  } else {
+                    toast.error(res.data.message || "Update failed");
+                  }
+                } catch (err: unknown) {
+                  console.debug('Edit booking error:', err);
+                  toast.error("Update failed ❌");
+                }
+              }}
+            >
+              <Form.Group className="mb-3">
+                <Form.Label>Customer Name</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={editForm.walkin_customer_name}
+                  onChange={(e) => setEditForm((f) => ({ ...f, walkin_customer_name: e.target.value }))}
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Phone Number</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={editForm.walkin_customer_no}
+                  onChange={(e) => setEditForm((f) => ({ ...f, walkin_customer_no: e.target.value }))}
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Email</Form.Label>
+                <Form.Control
+                  type="email"
+                  value={editForm.walkin_customer_email}
+                  onChange={(e) => setEditForm((f) => ({ ...f, walkin_customer_email: e.target.value }))}
+                />
+              </Form.Group>
+
+              <div className="text-end">
+                <button type="submit" className="btn btn-primary">
+                  Save Changes
+                </button>
+              </div>
+            </Form>
+          )}
+        </Modal.Body>
+      </Modal>
     </section>
   );
 };
 
 export default BookingList;
+

@@ -34,7 +34,6 @@ const moduleListPages: Record<string, string[]> = {
     "Account List",
     "Transaction List",
     "Expense List",
-    "View Payments",
   ],
   Customer: ["Customer List"],
   Program: ["Program Type List","Program List"],
@@ -75,7 +74,31 @@ const NavMenus = () => {
     }
   });
 
-  return Array.from(uniqueModules).sort((a, b) => a.localeCompare(b));
+  const moduleArray = Array.from(uniqueModules);
+
+  // Custom sort order defined by business requirement
+  const priorityOrder = [
+    'Configuration',
+    'User',
+    'Account',
+    'Schedule',
+    'Program',
+  ];
+
+  moduleArray.sort((a, b) => {
+    const idxA = priorityOrder.indexOf(a);
+    const idxB = priorityOrder.indexOf(b);
+    if (idxA !== -1 || idxB !== -1) {
+      // if one of them appears in priority list, sort by its index
+      if (idxA === -1) return 1; // a is not prioritized, put later
+      if (idxB === -1) return -1; // b is not prioritized
+      return idxA - idxB;
+    }
+    // otherwise fall back to alphabetical
+    return a.localeCompare(b);
+  });
+
+  return moduleArray;
 }, [userPermissions]);
 
   return (
@@ -119,3 +142,5 @@ const NavMenus = () => {
 };
 
 export default NavMenus;
+
+
