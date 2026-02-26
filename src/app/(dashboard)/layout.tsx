@@ -9,7 +9,34 @@ import { useSelector } from "react-redux"; // Removed useDispatch if not used
 import { CircularProgress } from "@mui/material";
 import { useRouter } from "next/navigation";
 
-import SideBar from "./components/layouts/navigation/sidebar";
+import { SideBar } from "./components/layouts/navigation/sidebar";
+
+const layoutStyles = `
+  /* Global mobile adjustment: push dashboard header/content down to clear fixed hamburger */
+  @media (max-width: 767.98px) {
+    /* Apply padding to the main wrapper (content-with-sidebar) so the header/navbar is moved down.
+       Use a body-level :not() class to allow excluding pages if needed (add class "no-mobile-offset" to body to opt-out). */
+    body:not(.no-mobile-offset) .content-with-sidebar {
+      padding-top: 70px !important; /* adjust value to match hamburger height + desired buffer */
+      position: relative;
+      z-index: 1; /* content sits below menu icon */
+    }
+
+    /* Ensure inner direct child doesn't counteract the offset — header container remains pushed down. */
+    body:not(.no-mobile-offset) .content-with-sidebar > div {
+      padding-top: 0;
+    }
+  }
+
+  /* Desktop: reset any mobile-only offsets */
+  @media (min-width: 768px) {
+    .content-with-sidebar {
+      padding-top: 0;
+      position: static;
+      z-index: auto;
+    }
+  }
+`;
 
 // Removed unused: const isInitial = true;
 
@@ -67,6 +94,7 @@ const ModulesLayout = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <>
+      <style>{layoutStyles}</style>
       {auth.loading ? (
         <div className="min-vh-100 d-flex mw-100 align-items-center justify-content-center gap-3">
           <CircularProgress className="text-danger" />

@@ -9,17 +9,17 @@ import { Offcanvas } from "react-bootstrap";
 
 const Menus = () => {
   const dispatch = useDispatch<AppDispatch>();
-  
+
   const handleClose = () => {
     dispatch(uiActions.navigation.setShowSideBar(false));
   };
-  
+
   return (
     <div className="tw-h-full flex-column d-flex w-100">
       <div className="d-flex d-lg-none justify-content-between align-items-center p-3 border-bottom">
         <h5 className="mb-0">Menu</h5>
-        <button 
-          className="btn btn-link text-white p-0" 
+        <button
+          className="btn btn-link text-white p-0"
           onClick={handleClose}
           aria-label="Close menu"
         >
@@ -34,7 +34,7 @@ const Menus = () => {
   );
 };
 
-const SideBar = () => {
+export const SideBar = () => {
   const dispatch = useDispatch<AppDispatch>();
   const ui = useSelector((state: RootState) => state.ui);
 
@@ -56,7 +56,7 @@ const SideBar = () => {
       <button 
         className="btn btn-dark d-lg-none position-fixed"
         onClick={handleOpen}
-        style={{ top: "20px", left: "20px", zIndex: 999, borderRadius: "50%", width: "48px", height: "48px", display: "flex", alignItems: "center", justifyContent: "center", padding: "0" }}
+        style={{ top: "20px", left: "20px", zIndex: 1001, borderRadius: "50%", width: "48px", height: "48px", display: "flex", alignItems: "center", justifyContent: "center", padding: "0" }}
         aria-label="Open menu"
       >
         <MdMenu size={24} color="white" />

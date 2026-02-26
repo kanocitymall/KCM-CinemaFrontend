@@ -5,6 +5,30 @@ import Link from "next/link";
 import { ReactNode } from "react";
 import { HiOutlineArrowNarrowLeft } from "react-icons/hi";
 
+const pageHeaderStyles = `
+  /* Mobile responsiveness: Hide header behind menu icon fix */
+  @media (max-width: 767.98px) {
+    .page-header-mobile {
+      margin-top: 90px !important;      /* Clear hamburger button (48px height + 20px top + buffer) */
+      padding-left: 20px;                 /* Avoid overlap with menu icon area */
+      padding-right: 20px;
+      position: relative;
+      z-index: 10;                        /* Below menu icon (z-index: 999) but above content */
+    }
+  }
+  
+  /* Ensure desktop displays normally */
+  @media (min-width: 768px) {
+    .page-header-mobile {
+      margin-top: 0;
+      padding-left: 0;
+      position: static;
+      z-index: auto;
+    }
+  }
+`;
+
+
 
 type PageHeaderProps = {
   title: string;
@@ -27,8 +51,9 @@ const PageHeader: React.FC<PageHeaderProps> = ({
       <Head>
         <title>{`${appConfig.companyName} - ${title}`}</title>
       </Head>
+      <style>{pageHeaderStyles}</style>
       <section
-        className={`d-flex justify-content-between align-items-lg-center my-3 ${
+        className={`page-header-mobile d-flex justify-content-between align-items-lg-center my-3 ${
           responsive ? "flex-column flex-lg-row" : "flex-row"
         }`}
       >
