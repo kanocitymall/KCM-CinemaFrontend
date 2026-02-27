@@ -12,17 +12,15 @@ import { useRouter } from "next/navigation";
 import { SideBar } from "./components/layouts/navigation/sidebar";
 
 const layoutStyles = `
-  /* Global mobile adjustment: push dashboard header/content down to clear fixed hamburger */
   @media (max-width: 767.98px) {
     /* Apply padding to the main wrapper (content-with-sidebar) so the header/navbar is moved down.
        Use a body-level :not() class to allow excluding pages if needed (add class "no-mobile-offset" to body to opt-out). */
     body:not(.no-mobile-offset) .content-with-sidebar {
-      padding-top: 70px !important; /* adjust value to match hamburger height + desired buffer */
+      padding-top: 15px !important;
       position: relative;
       z-index: 1; /* content sits below menu icon */
     }
 
-    /* Ensure inner direct child doesn't counteract the offset — header container remains pushed down. */
     body:not(.no-mobile-offset) .content-with-sidebar > div {
       padding-top: 0;
     }

@@ -112,6 +112,14 @@ a {
   font-size: 16px !important;
 }
 
+/* Ensure bootstrap warning button colors are visible when other styles override them */
+.btn.btn-warning {
+  background-color: #ffc107 !important;
+  color: #212529 !important;
+  border-color: #ffc107 !important;
+}
+
+
 /* Hide elements on small/mobile screens when the helper class is applied */
 @media (max-width: 767px) {
   .hide-on-mobile {
