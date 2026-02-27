@@ -128,7 +128,7 @@ const Programs = () => {
           />
           <PermissionGuard permission="Create Program">
             <button
-              className="btn btn-warning d-flex align-items-center gap-2 text-nowrap fw-bold"
+              className="btn btn-warning bg-warning text-dark d-flex align-items-center gap-2 text-nowrap fw-bold"
               onClick={() => {
                 setSelectedProgram(null);
                 setShowModal(true);

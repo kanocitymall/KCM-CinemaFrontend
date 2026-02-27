@@ -19,7 +19,8 @@ export interface ActivityLog {
   user_id: number;
   created_at: string;
   updated_at: string;
-  user: User;
+  // user may be null if the record no longer has an associated account
+  user: User | null;
 }
 
 export interface PaginatedData<T> {
