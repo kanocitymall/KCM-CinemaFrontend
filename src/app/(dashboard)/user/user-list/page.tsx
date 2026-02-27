@@ -109,7 +109,8 @@ const Users = () => {
           <button className="btn d-none d-md-flex align-items-center gap-2 border"><IoFilter /> Filter</button>
           <input type="search" className="form-control tw-text-sm d-none d-md-block" placeholder="Search users..." />
           <PermissionGuard permission="Create User">
-            <button className=" d-flex btn btn-warningalign-items-center gap-2 text-nowrap" onClick={() => { setSelectedUser(null); setShowAddUserModal(true); }}>
+            <button className="btn btn-warning bg-warning text-dark d-flex align-items-center gap-2 text-nowrap fw-bold" 
+            onClick={() => { setSelectedUser(null); setShowAddUserModal(true); }}>
               <MdAdd /> Add User
             </button>
           </PermissionGuard>

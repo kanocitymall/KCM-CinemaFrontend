@@ -44,6 +44,7 @@ const ParticipantsCheckInPage: React.FC = () => {
   // Seats / PDF download state
   const [seats, setSeats] = useState<any[]>([]);
   const [seatsLoading, setSeatsLoading] = useState<boolean>(true);
+  const [has404Error, setHas404Error] = useState<boolean>(false);
 
   const fetchScheduleSeats = useCallback(async () => {
     if (!scheduleId) return;
@@ -138,12 +139,20 @@ const ParticipantsCheckInPage: React.FC = () => {
       const now = Date.now();
       if (now - (lastFetchRef.current || 0) < 1000) return;
 
+      // If we already hit a 404, don't keep retrying
+      if (has404Error) {
+        setLoading(false);
+        return;
+      }
+
       const res = await api.get(`/bookings/schedule-bookings/${scheduleId}?page=${currentPage}`);
       const payload = res?.data;
       lastFetchRef.current = Date.now();
       if (!payload?.success) {
         toast.error(payload?.message || "Failed to fetch participants");
         setBookingsList([]);
+        setHas404Error(true);
+        setLoading(false);
         return;
       }
 
@@ -240,8 +249,14 @@ const ParticipantsCheckInPage: React.FC = () => {
     } catch (err: any) {
       console.error(err);
       const status = err?.response?.status;
-      // Handle rate limiting (429) by respecting Retry-After header if present
-      if (status === 429) {
+      // Handle 404: schedule doesn't exist or has no participants
+      if (status === 404) {
+        console.warn('Schedule or bookings not found (404)');
+        setBookingsList([]);
+        setHas404Error(true);
+        // Don't show toast for 404; it's expected when schedule is empty
+      } else if (status === 429) {
+        // Handle rate limiting (429) by respecting Retry-After header if present
         const retryAfter = parseInt(err.response?.headers?.["retry-after"] || "0") || 5;
         toast.warn(`Rate limited by server. Retrying in ${retryAfter}s`);
         // schedule one retry
@@ -256,7 +271,7 @@ const ParticipantsCheckInPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [api, scheduleId, currentPage]);
+  }, [api, scheduleId, currentPage, has404Error]);
 
   useEffect(() => {
     if (scheduleId) {
@@ -334,9 +349,9 @@ const ParticipantsCheckInPage: React.FC = () => {
 
               <hr />
               <h6 className="mb-3">Participants</h6>
-              {loading ? (
+              {loading && !has404Error ? (
                 <p>Loading...</p>
-              ) : bookingsList.length === 0 ? (
+              ) : bookingsList.length === 0 || has404Error ? (
                 <p className="text-muted">No participants found for this schedule.</p>
               ) : (
                 bookingsList.map((b, bi) => (

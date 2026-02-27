@@ -219,7 +219,7 @@ const ActivityLogsPage = () => {
                       <tr key={log.id}>
                         <td>{log.activity}</td>
                         <td>{log.more_details || "-"}</td>
-                        <td>{log.user.name}</td>
+                        <td>{log.user?.name || "-"}</td>
                         <td>{formatDate(log.created_at)}</td>
                       </tr>
                     ))}
